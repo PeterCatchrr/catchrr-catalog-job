@@ -1,0 +1,40 @@
+name: probe-runner
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: macos-26
+    steps:
+      - name: Which Mac is this
+        run: |
+          sw_vers
+          uname -m
+      - name: Is Apple's shazam tool here
+        run: |
+          ls -la /usr/bin/shazam || echo "NO /usr/bin/shazam"
+          which shazam || echo "shazam not on PATH"
+          shazam 2>&1 | head -12 || true
+      - name: Build a tiny test catalog from a generated tone
+        run: |
+          python3 - <<'PY'
+          import wave, struct, math, random
+          random.seed(1)
+          w = wave.open("t.wav", "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(44100)
+          for i in range(44100 * 12):
+              t = i / 44100.0
+              v = 0.3 * math.sin(2 * math.pi * (300 + 200 * math.sin(t * 1.7)) * t) + 0.2 * (random.random() - 0.5)
+              w.writeframes(struct.pack("<h", int(v * 32000)))
+          w.close()
+          PY
+          printf 'title,code\nProbe #1,1\n' > m.csv
+          shazam custom-catalog create -s t.wav -m m.csv -o out.shazamcatalog && ls -la out.shazamcatalog
+      - name: Can swiftc build against ShazamKit
+        run: |
+          cat > m.swift <<'SW'
+          import Foundation
+          import ShazamKit
+          let c = SHCustomCatalog()
+          print("ShazamKit imported, catalog object made:", c)
+          SW
+          swiftc m.swift -o m && ./m
+      - name: ffmpeg
+        run: which ffmpeg || echo "no ffmpeg on PATH (would be brew install ffmpeg)"
