@@ -1,0 +1,26 @@
+name: build-catalog
+# Builds the Catchrr fingerprint catalog on a Mac runner (Apple's shazam tool and ShazamKit exist only on a Mac) and sends it to the Catchrr backend.
+# Started by hand (Actions > build-catalog > Run workflow) or by the backend (repository_dispatch, type: catchrr-catalog).
+# Holds no secrets and no customer data: the backend address and the job's own key are GitHub "Actions secrets".
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [catchrr-catalog]
+concurrency:
+  group: build-catalog
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ffmpeg
+        run: brew install ffmpeg
+      - name: Build the catalog, check it in room noise, upload
+        env:
+          CATCHRR_URL: ${{ secrets.CATCHRR_URL }}
+          CATCHRR_JOB_TOKEN: ${{ secrets.CATCHRR_JOB_TOKEN }}
+        run: python3 tools/cloud_catalog.py
